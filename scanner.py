@@ -21,7 +21,9 @@ def scan_ip(ip):
         socket.gethostbyaddr(ip)
         return True
     except socket.herror:
-        return False
+        return True
+    except socket.gaierror:
+        logging.error(f"Address-related error with with Ip: {ip}")
 
 #function to scan ports for a given ip
 def scan_port(ip, port):
