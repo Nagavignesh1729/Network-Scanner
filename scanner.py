@@ -8,6 +8,13 @@ port_range = range(1, 1025)
 thread_count = 100
 q = Queue()
 
+def parse_argument():
+    parser.add_argument("-i", "--ip-range", type=str, default=target_ip_range, help="Ip rang to scan");
+    parser.add_argument("-p", "--port-range", type=str, default="1-1024", help="Port range to scan");
+    parser.add_argument("-t", "--threads", type=int, default=thread_count, help="No of threads");
+    parser.add_argument("-o", type=str, default=None, help="Output file location");
+    return parser.parse_args();
+
 #function to scan a single ip
 def scan_ip(ip):
     try:
