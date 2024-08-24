@@ -1,8 +1,11 @@
 import socket
+import logging
 import threading
 from queue import Queue
 
-# Config
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
+
+# Configurations
 target_ip_range = "192.168.1.1-192.168.1.255"
 port_range = range(1, 1025)
 thread_count = 100
