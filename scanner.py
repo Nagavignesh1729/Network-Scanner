@@ -22,15 +22,52 @@ def parse_arguments():
     parser.add_argument("-o", "--output", type=str, default=None, help="Output file location (optional)")
     return parser.parse_args()
 
+# Service Detection on some known ports
+# sending specific queries or banners and analyzing the responses
+def detect_service(ip, port):
+    service_banners = {
+        80: "HTTP",
+        443: "HTTPS",
+        21: "FTP",
+        22: "SSH",
+        25: "SMTP",
+        23: "Telnet"
+    }
+    service = service_banners.get(port, "Unknown")
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            sock.settimeout(1)
+            sock.connect((ip, port))
+            if port in service_banners:
+                if port in [80, 443]:
+                    sock.sendall(b"GET / HTTP/1.1\r\nHost: example.com\r\n\r\n")
+                elif port in [21]:
+                    sock.sendall(b"USER anonymous\r\n")
+                elif port in [22]:
+                    pass
+
+                response = sock.recv(1024).decode()
+                logging.info(f"Open port {port} on {ip} - Detected service: {service}")
+                return response
+            else:
+                return None
+    except Exception as e:
+        logging.error(f"Error Detecting service on port {port} of {ip}: {e}")
+        return None
+
 #function to scan a single IP's ports
 def scan_port(ip, port):
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     socket.setdefaulttimeout(1)
     try:
         sock.connect((ip, port))
-        return True
+        response = detect_service(ip, port)
+        if response:
+            return f"Open {port} on {ip} - Service Response: {response}"
+        else:
+            return f"Open {port} on {ip}"
     except:
-        return False
+        return None
     finally:
         sock.close()
 
