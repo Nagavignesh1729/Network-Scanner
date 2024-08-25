@@ -12,6 +12,7 @@ target_ip_range = "192.168.1.1-192.168.1.255"
 port_range = range(1, 1025)
 thread_count = 100
 q = Queue()
+output_file = None
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description="Advanced ip and Port Scanner")
@@ -38,7 +39,12 @@ def worker():
     while not q.empty():
         ip, port = q.get()
         if scan_port(ip, port):
-            logging.info(f"Open port {port} on {ip}")
+            result = f"Open port {port} on {ip}"
+            logging.info(result)
+            if output_file:
+                with threading.Lock():
+                    with open(output_file, "a") as f:
+                        f.write(result + "\n")
         q.task_done()
 
 #enqueue IPs and ports to scan
@@ -64,6 +70,7 @@ def start_scan(ip_range, ports, thread_count):
 if __name__ == "__main__":
     args = parse_arguments()
     
+    output_file = args.output
     # Parse the port range
     port_start, port_end = map(int, args.port_range.split('-'))
     port_range = range(port_start, port_end + 1)
