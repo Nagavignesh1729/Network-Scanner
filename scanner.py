@@ -7,12 +7,16 @@ import argparse
 
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 
-# Configurations
+# default Config
 target_ip_range = "192.168.1.1-192.168.1.255"
 port_range = range(1, 1025)
 thread_count = 100
-q = Queue()
 output_file = None
+q = Queue()
+
+#some global var
+total_task = 0
+completed_task = 0
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description="Advanced ip and Port Scanner")
@@ -73,6 +77,9 @@ def scan_port(ip, port):
 
 #thread to handle scanning tasks
 def worker():
+    global completed_task 
+    last_reported_progress = -1
+
     while not q.empty():
         ip, port = q.get()
         if scan_port(ip, port):
@@ -82,10 +89,15 @@ def worker():
                 with threading.Lock():
                     with open(output_file, "a") as f:
                         f.write(result + "\n")
+        
+        with threading.Lock():
+            completed_task += 1
         q.task_done()
 
 #enqueue IPs and ports to scan
 def prepare_queue(ip_range, ports):
+    global total_task 
+
     start_ip, end_ip = ip_range.split('-')
     start_ip = ipaddress.ip_address(start_ip)
     end_ip = ipaddress.ip_address(end_ip)
@@ -94,6 +106,7 @@ def prepare_queue(ip_range, ports):
         ip = str(ipaddress.ip_address(ip_int))
         for port in ports:
             q.put((ip, port))
+            total_task += 1
 
 #start the scanning process
 def start_scan(ip_range, ports, thread_count):
@@ -104,12 +117,30 @@ def start_scan(ip_range, ports, thread_count):
         thread.start()
     q.join()
 
+#pressing enter displays current progress
+def print_progress_on_enter():
+    global total_task, completed_task
+    while completed_task < total_task:
+        input()
+        with threading.Lock():
+            progress = (completed_task/total_task) * 100
+            print(f"Progress: {progress:.2f}% completed")
+
+
 if __name__ == "__main__":
     args = parse_arguments()
     
     output_file = args.output
-    # Parse the port range
+    
+    #parsing port range
     port_start, port_end = map(int, args.port_range.split('-'))
     port_range = range(port_start, port_end + 1)
+
+    scan_thread = threading.Thread(target=start_scan, args=(args.ip_range, port_range, args.threads))
+    scan_thread.start()
     
-    start_scan(args.ip_range, port_range, args.threads)
+    progress_thread = threading.Thread(target=print_progress_on_enter)
+    progress_thread.start()
+
+    scan_thread.join()
+    progress_thread.join()
