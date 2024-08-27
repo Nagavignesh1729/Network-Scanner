@@ -41,6 +41,7 @@ service_banners = {
     587: "SMTP Secure",
     993: "IMAP Secure",
     995: "POP3 Secure",
+    # outside default range
     3306: "MySQL",
     3389: "RDP",
     5900: "VNC",
@@ -60,23 +61,23 @@ def detect_service(ip, port):
             
             if port in [80, 8080, 8000, 8443]:
                 sock.sendall(b"GET / HTTP/1.1\r\nHost: example.com\r\n\r\n")
-            elif port == 21:                            # FTP
+            elif port == 21:                                # FTP
                 sock.sendall(b"USER anonymous\r\n")
-            elif port == 22:                            # SSH
+            elif port == 22:                                # SSH
                 sock.sendall(b"\r\n")
-            elif port == 25 or port == 587:             # SMTP
+            elif port == 25 or port == 587:                 # SMTP
                 sock.sendall(b"EHLO example.com\r\n")
-            elif port == 110:                           # POP3
+            elif port == 110:                               # POP3
                 sock.sendall(b"USER anonymous\r\n")
-            elif port == 143 or port == 993:            # IMAP
+            elif port == 143 or port == 993:                # IMAP
                 sock.sendall(b"TAG LOGIN user pass\r\n")
-            elif port == 3306:                          # MySQL
+            elif port == 3306:                              # MySQL
                 sock.sendall(b"\n")
-            elif port == 6379:                          # Redis
+            elif port == 6379:                              # Redis
                 sock.sendall(b"INFO\r\n")
-            elif port == 3389:                          # RDP
+            elif port == 3389:                              # RDP
                 sock.sendall(b"RDP\r\n")
-            elif port == 5900:                          # VNC
+            elif port == 5900:                              # VNC
                 sock.sendall(b"RFB 003.003\r\n")
             
             response = sock.recv(1024).decode()
