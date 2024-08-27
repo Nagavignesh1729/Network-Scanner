@@ -28,33 +28,60 @@ def parse_arguments():
 
 # Service Detection on some known ports
 # sending specific queries or banners and analyzing the responses
+service_banners = {
+    21: "FTP",
+    22: "SSH",
+    23: "Telnet",
+    25: "SMTP",
+    53: "DNS",
+    80: "HTTP",
+    110: "POP3",
+    143: "IMAP",
+    443: "HTTPS",
+    587: "SMTP Secure",
+    993: "IMAP Secure",
+    995: "POP3 Secure",
+    3306: "MySQL",
+    3389: "RDP",
+    5900: "VNC",
+    6379: "Redis",
+    8000: "Common Web Service",
+    8080: "HTTP Proxy",
+    8443: "HTTPS Alternative",
+    9000: "Custom Web Service"
+}
+
 def detect_service(ip, port):
-    service_banners = {
-        80: "HTTP",
-        443: "HTTPS",
-        21: "FTP",
-        22: "SSH",
-        25: "SMTP",
-        23: "Telnet"
-    }
     service = service_banners.get(port, "Unknown")
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
             sock.settimeout(1)
             sock.connect((ip, port))
-            if port in service_banners:
-                if port in [80, 443]:
-                    sock.sendall(b"GET / HTTP/1.1\r\nHost: example.com\r\n\r\n")
-                elif port in [21]:
-                    sock.sendall(b"USER anonymous\r\n")
-                elif port in [22]:
-                    pass
-
-                response = sock.recv(1024).decode()
-                logging.info(f"Open port {port} on {ip} - Detected service: {service}")
-                return response
-            else:
-                return None
+            
+            if port in [80, 8080, 8000, 8443]:
+                sock.sendall(b"GET / HTTP/1.1\r\nHost: example.com\r\n\r\n")
+            elif port == 21:                            # FTP
+                sock.sendall(b"USER anonymous\r\n")
+            elif port == 22:                            # SSH
+                sock.sendall(b"\r\n")
+            elif port == 25 or port == 587:             # SMTP
+                sock.sendall(b"EHLO example.com\r\n")
+            elif port == 110:                           # POP3
+                sock.sendall(b"USER anonymous\r\n")
+            elif port == 143 or port == 993:            # IMAP
+                sock.sendall(b"TAG LOGIN user pass\r\n")
+            elif port == 3306:                          # MySQL
+                sock.sendall(b"\n")
+            elif port == 6379:                          # Redis
+                sock.sendall(b"INFO\r\n")
+            elif port == 3389:                          # RDP
+                sock.sendall(b"RDP\r\n")
+            elif port == 5900:                          # VNC
+                sock.sendall(b"RFB 003.003\r\n")
+            
+            response = sock.recv(1024).decode()
+            logging.info(f"Open port {port} on {ip} - Detected service: {service}")
+            return response
     except Exception as e:
         logging.error(f"Error Detecting service on port {port} of {ip}: {e}")
         return None
