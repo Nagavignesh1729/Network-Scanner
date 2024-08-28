@@ -4,6 +4,7 @@ import threading
 from queue import Queue
 import ipaddress
 import argparse
+from scapy.all import *
 
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -87,6 +88,21 @@ def detect_service(ip, port):
         logging.error(f"Error Detecting service on port {port} of {ip}: {e}")
         return None
 
+def os_fingerprint(ip):
+    syn = IP(dst=ip)/TCP(dport=80, flags='S')
+    syn_ack = sr1(syn, timeout=2)
+
+    if syn_ack:
+        ack = IP(dst=ip)/TCP(dport=80, flags='A', ack=syn_ack.seq + 1)
+        send(ack)
+        if syn_ack.haslayer(TCP):
+            tcp_layer = syn_ack.getlayer(TCP)
+            if tcp_layer.flags == 0x12:
+                return "Potential OS: Linux"
+            elif tcp_layer.flags == 0x10:
+                return "Potential OS: Windows"
+    return "Unknown OS"
+
 #function to scan a single IP's ports
 def scan_port(ip, port):
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -94,10 +110,11 @@ def scan_port(ip, port):
     try:
         sock.connect((ip, port))
         response = detect_service(ip, port)
+        os_info = os_fingerprint(ip)
         if response:
-            return f"Open {port} on {ip} - Service Response: {response}"
+            return f"Open {port} on {ip} - Service Response: {response} - OS info: {os_info}"
         else:
-            return f"Open {port} on {ip}"
+            return f"Open {port} on {ip} - OS info: {os_info}"
     except:
         return None
     finally:
@@ -110,8 +127,9 @@ def worker():
 
     while not q.empty():
         ip, port = q.get()
+        result = scan_port(ip, port)
         if scan_port(ip, port):
-            result = f"Open port {port} on {ip}"
+            #result = f"Open port {port} on {ip}"
             logging.info(result)
             if output_file:
                 with threading.Lock():
