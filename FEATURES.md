@@ -1,4 +1,4 @@
-Date: 27-08-2024
+Last update Date: 29-08-2024
 
 Features Implemented:       
 
@@ -17,6 +17,9 @@ Progress Reporting:
 Command-line Arguments:
     The tool accepts command-line arguments for IP range, port range, thread count, and output file location.
 
+OS finger-printing:
+    Added a simple OS finger printing.
+
 Goals for Further Development:
 
 Enhanced Service Detection:
@@ -24,9 +27,10 @@ Enhanced Service Detection:
 
 Output Formats:
     Add options to export scan results in various formats, such as JSON, XML, or CSV.
+    Right now, very lazy output formatting done.
 
 Advanced Scanning Techniques:
-    Implement features like SYN scanning, OS fingerprinting, and vulnerability detection.
+    Implement features like SYN scanning, and vulnerability detection.
 
 Interactive Mode:
     Add an interactive mode for real-time scanning and result analysis.
