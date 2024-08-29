@@ -7,7 +7,11 @@ import argparse
 from scapy.all import IP, TCP, sr1, conf
 from cryptography.hazmat.primitives.ciphers import algorithms
 
-logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(
+    level=logging.INFO,  		#default level to INFO
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'  
+)
 
 # default Config
 target_ip_range = "192.168.1.1-192.168.1.255"
