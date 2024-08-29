@@ -4,9 +4,14 @@ import threading
 from queue import Queue
 import ipaddress
 import argparse
-from scapy.all import *
+from scapy.all import IP, TCP, sr1, conf
+from cryptography.hazmat.primitives.ciphers import algorithms
 
-logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(
+    level=logging.INFO,  		#default level to INFO
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'  
+)
 
 # default Config
 target_ip_range = "192.168.1.1-192.168.1.255"
@@ -18,6 +23,8 @@ q = Queue()
 #some global var
 total_task = 0
 completed_task = 0
+
+scan_results = []
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description="Advanced ip and Port Scanner")
@@ -53,72 +60,99 @@ service_banners = {
     9000: "Custom Web Service"
 }
 
-def detect_service(ip, port):
+def detect_service(sock, ip, port):
     service = service_banners.get(port, "Unknown")
     try:
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-            sock.settimeout(1)
-            sock.connect((ip, port))
-            
-            if port in [80, 8080, 8000, 8443]:
-                sock.sendall(b"GET / HTTP/1.1\r\nHost: example.com\r\n\r\n")
-            elif port == 21:                                # FTP
-                sock.sendall(b"USER anonymous\r\n")
-            elif port == 22:                                # SSH
-                sock.sendall(b"\r\n")
-            elif port == 25 or port == 587:                 # SMTP
-                sock.sendall(b"EHLO example.com\r\n")
-            elif port == 110:                               # POP3
-                sock.sendall(b"USER anonymous\r\n")
-            elif port == 143 or port == 993:                # IMAP
-                sock.sendall(b"TAG LOGIN user pass\r\n")
-            elif port == 3306:                              # MySQL
-                sock.sendall(b"\n")
-            elif port == 6379:                              # Redis
-                sock.sendall(b"INFO\r\n")
-            elif port == 3389:                              # RDP
-                sock.sendall(b"RDP\r\n")
-            elif port == 5900:                              # VNC
-                sock.sendall(b"RFB 003.003\r\n")
-            
-            response = sock.recv(1024).decode()
-            logging.info(f"Open port {port} on {ip} - Detected service: {service}")
-            return response
+        if port in [80, 8080, 8000, 8443]:
+            sock.sendall(b"GET / HTTP/1.1\r\nHost: example.com\r\n\r\n")
+        elif port == 21:                                # FTP
+            sock.sendall(b"USER anonymous\r\n")
+        elif port == 22:                                # SSH
+            sock.sendall(b"\r\n")
+        elif port == 25 or port == 587:                 # SMTP
+            sock.sendall(b"EHLO example.com\r\n")
+        elif port == 110:                               # POP3
+            sock.sendall(b"USER anonymous\r\n")
+        elif port == 143 or port == 993:                # IMAP
+            sock.sendall(b"TAG LOGIN user pass\r\n")
+        elif port == 3306:                              # MySQL
+            sock.sendall(b"\n")
+        elif port == 6379:                              # Redis
+            sock.sendall(b"INFO\r\n")
+        elif port == 3389:                              # RDP
+            sock.sendall(b"RDP\r\n")
+        elif port == 5900:                              # VNC
+            sock.sendall(b"RFB 003.003\r\n")
+        
+        response = sock.recv(1024).decode()
+        logging.info(f"Open port {port} on {ip} - Detected service: {service}")
+        return response
     except Exception as e:
         logging.error(f"Error Detecting service on port {port} of {ip}: {e}")
         return None
 
-def os_fingerprint(ip):
-    syn = IP(dst=ip)/TCP(dport=80, flags='S')
-    syn_ack = sr1(syn, timeout=2)
-
-    if syn_ack:
-        ack = IP(dst=ip)/TCP(dport=80, flags='A', ack=syn_ack.seq + 1)
-        send(ack)
-        if syn_ack.haslayer(TCP):
-            tcp_layer = syn_ack.getlayer(TCP)
-            if tcp_layer.flags == 0x12:
-                return "Potential OS: Linux"
-            elif tcp_layer.flags == 0x10:
-                return "Potential OS: Windows"
-    return "Unknown OS"
-
-#function to scan a single IP's ports
 def scan_port(ip, port):
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     socket.setdefaulttimeout(1)
     try:
         sock.connect((ip, port))
-        response = detect_service(ip, port)
+        response = detect_service(sock, ip, port)
         os_info = os_fingerprint(ip)
-        if response:
-            return f"Open {port} on {ip} - Service Response: {response} - OS info: {os_info}"
-        else:
-            return f"Open {port} on {ip} - OS info: {os_info}"
-    except:
+        
+        result = {
+            "ip": ip,
+            "port": port,
+            "service": service_banners.get(port, "Unknown"),
+            "os": os_info,
+            "response": response if response else "No response"
+        }
+
+        with threading.Lock():
+            scan_results.append(result)
+
+        logging.info(f"Open port {port} on {ip} - Service: {result['service']} - OS info: {result['os']}")
+
+        return f"Open {port} on {ip} - Service Response: {response} - OS info: {os_info}"
+
+    except Exception as e:
+        logging.error(f"Error while scanning port {port} on {ip}: {e}")
         return None
     finally:
         sock.close()
+
+
+def os_fingerprint(ip):
+    logging.info(f"Starting OS fingerprinting for {ip}")
+
+    syn = IP(dst=ip)/TCP(dport=80, flags='S')
+    try:
+        syn_ack = sr1(syn, timeout=3) 
+
+        if syn_ack and syn_ack.haslayer(TCP):
+            tcp_layer = syn_ack.getlayer(TCP)
+            ttl = syn_ack.ttl
+            window_size = tcp_layer.window
+            
+            logging.debug(f"Received SYN-ACK with flags {tcp_layer.flags}, TTL {ttl}, Window Size {window_size}")
+
+            if tcp_layer.flags == 0x12:  # SYN-ACK
+                if ttl <= 64:
+                    return "Potential OS: Linux"
+                elif ttl <= 128:
+                    return "Potential OS: Windows"
+                elif ttl <= 255:
+                    return "Potential OS: Solaris/AIX"
+                else:
+                    return "Unknown OS based on TTL"
+            else:
+                logging.warning(f"Unexpected TCP flags: {tcp_layer.flags}")
+                return "Unknown OS"
+        else:
+            logging.error(f"No response or no TCP layer found for IP: {ip}")
+            return "Unknown OS"
+    except Exception as e:
+        logging.error(f"Error during OS fingerprinting for {ip}: {e}")
+        return "Unknown OS"
 
 #thread to handle scanning tasks
 def worker():
@@ -128,8 +162,7 @@ def worker():
     while not q.empty():
         ip, port = q.get()
         result = scan_port(ip, port)
-        if scan_port(ip, port):
-            #result = f"Open port {port} on {ip}"
+        if result:  # Using the result from the first call
             logging.info(result)
             if output_file:
                 with threading.Lock():
@@ -167,11 +200,12 @@ def start_scan(ip_range, ports, thread_count):
 def print_progress_on_enter():
     global total_task, completed_task
     while completed_task < total_task:
-        input()
+        time.sleep(1)
         with threading.Lock():
-            progress = (completed_task/total_task) * 100
-            print(f"Progress: {progress:.2f}% completed")
-
+            progress = (completed_task / total_task) * 100
+            sys.stdout.write(f"\rProgress: {progress:.2f}% completed")
+            sys.stdout.flush()
+    print()
 
 if __name__ == "__main__":
     args = parse_arguments()
