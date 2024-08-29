@@ -1,41 +1,46 @@
 import socket
 import logging
+import warnings
 import threading
 from queue import Queue
 import ipaddress
 import argparse
 from scapy.all import IP, TCP, sr1, conf
-from cryptography.hazmat.primitives.ciphers import algorithms
+import time
+import sys
+from cryptography.utils import CryptographyDeprecationWarning
+
+warnings.filterwarnings("ignore", category=CryptographyDeprecationWarning)
 
 logging.basicConfig(
-    level=logging.INFO,  		#default level to INFO
+    level=logging.ERROR,  # Default to error level
     format='%(asctime)s - %(levelname)s - %(message)s',
-    datefmt='%Y-%m-%d %H:%M:%S'  
+    datefmt='%Y-%m-%d %H:%M:%S'
 )
 
-# default Config
+# Default Config
 target_ip_range = "192.168.1.1-192.168.1.255"
 port_range = range(1, 1025)
 thread_count = 100
 output_file = None
 q = Queue()
 
-#some global var
+# Some global vars
 total_task = 0
 completed_task = 0
 
 scan_results = []
 
 def parse_arguments():
-    parser = argparse.ArgumentParser(description="Advanced ip and Port Scanner")
-    parser.add_argument("-i", "--ip-range", type=str, default=target_ip_range, help="Ip rang to scan")
+    parser = argparse.ArgumentParser(description="Advanced IP and Port Scanner")
+    parser.add_argument("-i", "--ip-range", type=str, default=target_ip_range, help="IP range to scan")
     parser.add_argument("-p", "--port-range", type=str, default="1-1024", help="Port range to scan")
-    parser.add_argument("-t", "--threads", type=int, default=thread_count, help="No of threads to use for scanning")
+    parser.add_argument("-t", "--threads", type=int, default=thread_count, help="Number of threads to use for scanning")
     parser.add_argument("-o", "--output", type=str, default=None, help="Output file location (optional)")
     return parser.parse_args()
 
 # Service Detection on some known ports
-# sending specific queries or banners and analyzing the responses
+# Sending specific queries or banners and analyzing the responses
 service_banners = {
     21: "FTP",
     22: "SSH",
@@ -49,7 +54,7 @@ service_banners = {
     587: "SMTP Secure",
     993: "IMAP Secure",
     995: "POP3 Secure",
-    # outside default range
+    # Outside default range
     3306: "MySQL",
     3389: "RDP",
     5900: "VNC",
@@ -60,6 +65,7 @@ service_banners = {
     9000: "Custom Web Service"
 }
 
+#detect services using banner grabbing
 def detect_service(sock, ip, port):
     service = service_banners.get(port, "Unknown")
     try:
@@ -110,17 +116,19 @@ def scan_port(ip, port):
         with threading.Lock():
             scan_results.append(result)
 
-        logging.info(f"Open port {port} on {ip} - Service: {result['service']} - OS info: {result['os']}")
-
-        return f"Open {port} on {ip} - Service Response: {response} - OS info: {os_info}"
-
+        if response:
+            return f"Open {port} on {ip} - Service Response: {response} - OS info: {os_info}"
+    
+    except socket.timeout:
+        logging.warning(f"Port {port} on {ip} timed out.")
+        return None
     except Exception as e:
         logging.error(f"Error while scanning port {port} on {ip}: {e}")
         return None
     finally:
         sock.close()
 
-
+#simple os finger printing to identify the type of os
 def os_fingerprint(ip):
     logging.info(f"Starting OS fingerprinting for {ip}")
 
@@ -154,7 +162,7 @@ def os_fingerprint(ip):
         logging.error(f"Error during OS fingerprinting for {ip}: {e}")
         return "Unknown OS"
 
-#thread to handle scanning tasks
+# Thread to handle scanning tasks
 def worker():
     global completed_task 
     last_reported_progress = -1
@@ -162,8 +170,9 @@ def worker():
     while not q.empty():
         ip, port = q.get()
         result = scan_port(ip, port)
-        if result:  # Using the result from the first call
-            logging.info(result)
+        if result:
+            sys.stdout.write(f"\r{result}")
+            sys.stdout.flush()
             if output_file:
                 with threading.Lock():
                     with open(output_file, "a") as f:
@@ -173,7 +182,7 @@ def worker():
             completed_task += 1
         q.task_done()
 
-#enqueue IPs and ports to scan
+# Enqueue IPs and ports to scan
 def prepare_queue(ip_range, ports):
     global total_task 
 
@@ -187,7 +196,7 @@ def prepare_queue(ip_range, ports):
             q.put((ip, port))
             total_task += 1
 
-#start the scanning process
+# Start the scanning process
 def start_scan(ip_range, ports, thread_count):
     prepare_queue(ip_range, ports)
     for _ in range(thread_count):
@@ -200,7 +209,7 @@ def start_scan(ip_range, ports, thread_count):
 def print_progress_on_enter():
     global total_task, completed_task
     while completed_task < total_task:
-        time.sleep(1)
+        input()
         with threading.Lock():
             progress = (completed_task / total_task) * 100
             sys.stdout.write(f"\rProgress: {progress:.2f}% completed")
@@ -212,7 +221,7 @@ if __name__ == "__main__":
     
     output_file = args.output
     
-    #parsing port range
+    # Parsing port range
     port_start, port_end = map(int, args.port_range.split('-'))
     port_range = range(port_start, port_end + 1)
 
