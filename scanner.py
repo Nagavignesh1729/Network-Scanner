@@ -13,11 +13,11 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 warnings.filterwarnings("ignore", category=CryptographyDeprecationWarning)
 
-# Set Scapy verbosity to 0 (suppress detailed Scapy output)
+# Set Scapy verbosity for detailed Scapy output (0 to suppress, 1 for some output, 2 for detailed)
 conf.verb = 0
 
 logging.basicConfig(
-    level=logging.ERROR,  # Default to error level
+    level=logging.ERROR,  # default set to ERROR
     format='%(asctime)s - %(levelname)s - %(message)s',
     datefmt='%Y-%m-%d %H:%M:%S'
 )
