@@ -241,7 +241,7 @@ if __name__ == "__main__":
     port_range = range(port_start, port_end + 1)
 
     # Preparing the thread and starting it
-    scan_thread = threading.Thread(target=start_scan, args=(args.ip_range, port_range, args.threads))
+    scan_thread = threading.Thread(target=start_scan, args=(args.ip_range, port_range, args.threads, verbose))
     scan_thread.start()
     
     # A seperate thread to listen for user input to print current progress
