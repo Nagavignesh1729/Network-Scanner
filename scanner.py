@@ -10,6 +10,7 @@ import time
 import sys
 from cryptography.utils import CryptographyDeprecationWarning
 from concurrent.futures import ThreadPoolExecutor, as_completed
+import json
 
 warnings.filterwarnings("ignore", category=CryptographyDeprecationWarning)
 
@@ -229,6 +230,14 @@ def print_progress_on_enter():
         print()
     except KeyboardInterrupt:
         print("\nProgress monitoring interrupted")
+
+def export_to_json(results, file_path):
+    try:
+        with open(file_path, 'w') as json_file:
+            json.dump(results, json_file, indent=4)
+        logging.info(f"Results successfully exported to {file_path}")
+    except Exception as e:
+        logging.error(f"Error whileexporting results to JSON file: {e}")
 
 if __name__ == "__main__":
     args = parse_arguments()
