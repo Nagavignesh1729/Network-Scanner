@@ -1,4 +1,4 @@
-Last update Date: 29-08-2024
+Last update Date: 20-08-2024
 
 Features Implemented:       
 
@@ -10,15 +10,16 @@ Service Detection:
 
 Multi-threading:
     Utilizes multi-threading to scan multiple IPs and ports concurrently, to speed up the scanning process.
+    Uses ThreadPoolExecutor to auto manage threads instead of manual thread management.
 
 Progress Reporting:
     Allows users to check the scanning progress by pressing 'Enter' (shows the percentage of completion).
 
 Command-line Arguments:
-    The tool accepts command-line arguments for IP range, port range, thread count, and output file location.
+    The tool accepts command-line arguments for IP range, port range, thread count, verbose, and output file location.
 
 OS finger-printing:
-    Added a simple OS finger printing.
+    Added a simple OS finger printing (based on TTL values received in response).
 
 Goals for Further Development:
 
