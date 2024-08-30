@@ -185,6 +185,12 @@ def worker_thread(ip, port, verbose):
             with threading.Lock():
                 with open(output_file, "a") as f:
                     f.write(result + "\n")
+        scan_results.append({
+            "ip": ip,
+            "port": port,
+            "service": service_banners.get(port, "Unknown"),
+            "response": result
+        })
     
     with threading.Lock():  # Using lock to safely update progress
         completed_task += 1
@@ -216,6 +222,9 @@ def start_scan(ip_range, ports, thread_count, verbose=False):
         # Wait for all futures to complete
         for future in as_completed(futures):
             future.result()
+    
+    if output_file and output_file.endswith('.json'):
+        export_to_json(scan_results, output_file)
 
 # Pressing enter displays current progress
 def print_progress_on_enter():
