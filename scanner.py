@@ -9,6 +9,7 @@ from scapy.all import IP, TCP, sr1, conf
 import time
 import sys
 from cryptography.utils import CryptographyDeprecationWarning
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 warnings.filterwarnings("ignore", category=CryptographyDeprecationWarning)
 
@@ -166,25 +167,20 @@ def os_fingerprint(ip):
         return "Unknown OS"
 
 # Thread to handle scanning tasks
-def worker():
-    global completed_task 
-    #last_reported_progress = -1    (used for a different progress printing)
-
-    while not q.empty():
-        ip, port = q.get()
-        result = scan_port(ip, port)
-        if result:
-            sys.stdout.write(f"\r{result}")
-            sys.stdout.flush()
-            #redirect output to a file (appends results)
-            if output_file:
-                with threading.Lock():
-                    with open(output_file, "a") as f:
-                        f.write(result + "\n")
-        
-        with threading.Lock():
-            completed_task += 1
-        q.task_done()
+def worker_thread(ip, port):
+    global completed_task
+    result = scan_port(ip, port)
+    if result:
+        sys.stdout.write(f"\r{result}")
+        sys.stdout.flush()
+        #Writes output to a file (appends it)
+        if output_file:
+            with threading.Lock():
+                with open(output_file, "a") as f:
+                    f.write(result + "\n")
+    
+    with threading.Lock():  # Using lock to safely update progress
+        completed_task += 1
 
 # Enqueue IPs and ports to scan
 def prepare_queue(ip_range, ports):
@@ -203,11 +199,16 @@ def prepare_queue(ip_range, ports):
 # Start the scanning process
 def start_scan(ip_range, ports, thread_count):
     prepare_queue(ip_range, ports)
-    for _ in range(thread_count):
-        thread = threading.Thread(target=worker)
-        thread.daemon = True
-        thread.start()
-    q.join()
+
+    with ThreadPoolExecutor(max_workers=thread_count) as executor:
+        futures = []
+        while not q.empty():
+            ip, port = q.get()
+            futures.append(executor.submit(worker_thread, ip, port))
+
+        # Wait for all futures to complete
+        for future in as_completed(futures):
+            future.result()
 
 # Pressing enter displays current progress
 def print_progress_on_enter():
