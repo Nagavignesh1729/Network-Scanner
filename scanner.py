@@ -31,6 +31,7 @@ completed_task = 0
 
 scan_results = []
 
+# Parsing arguments
 def parse_arguments():
     parser = argparse.ArgumentParser(description="Advanced IP and Port Scanner")
     parser.add_argument("-i", "--ip-range", type=str, default=target_ip_range, help="IP range to scan")
@@ -65,7 +66,7 @@ service_banners = {
     9000: "Custom Web Service"
 }
 
-#detect services using banner grabbing
+# Detecting services using banner grabbing
 def detect_service(sock, ip, port):
     service = service_banners.get(port, "Unknown")
     try:
@@ -97,6 +98,7 @@ def detect_service(sock, ip, port):
         logging.error(f"Error Detecting service on port {port} of {ip}: {e}")
         return None
 
+# Scan a single ip and port
 def scan_port(ip, port):
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     socket.setdefaulttimeout(1)
@@ -105,6 +107,7 @@ def scan_port(ip, port):
         response = detect_service(sock, ip, port)
         os_info = os_fingerprint(ip)
         
+        # Storing results in a dictionary
         result = {
             "ip": ip,
             "port": port,
@@ -128,7 +131,7 @@ def scan_port(ip, port):
     finally:
         sock.close()
 
-#simple os finger printing to identify the type of os
+# Simple os finger printing to identify the type of os
 def os_fingerprint(ip):
     logging.info(f"Starting OS fingerprinting for {ip}")
 
@@ -165,7 +168,7 @@ def os_fingerprint(ip):
 # Thread to handle scanning tasks
 def worker():
     global completed_task 
-    last_reported_progress = -1
+    #last_reported_progress = -1    (used for a different progress printing)
 
     while not q.empty():
         ip, port = q.get()
@@ -173,6 +176,7 @@ def worker():
         if result:
             sys.stdout.write(f"\r{result}")
             sys.stdout.flush()
+            #redirect output to a file (appends results)
             if output_file:
                 with threading.Lock():
                     with open(output_file, "a") as f:
@@ -205,7 +209,7 @@ def start_scan(ip_range, ports, thread_count):
         thread.start()
     q.join()
 
-#pressing enter displays current progress
+# Pressing enter displays current progress
 def print_progress_on_enter():
     global total_task, completed_task
     while completed_task < total_task:
@@ -225,9 +229,11 @@ if __name__ == "__main__":
     port_start, port_end = map(int, args.port_range.split('-'))
     port_range = range(port_start, port_end + 1)
 
+    # Preparing the thread and starting it
     scan_thread = threading.Thread(target=start_scan, args=(args.ip_range, port_range, args.threads))
     scan_thread.start()
     
+    # A seperate thread to listen for user input to print current progress
     progress_thread = threading.Thread(target=print_progress_on_enter)
     progress_thread.start()
 
