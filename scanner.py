@@ -171,7 +171,7 @@ def os_fingerprint(ip):
         return "Unknown OS"
 
 # Thread to handle scanning tasks
-def worker_thread(ip, port):
+def worker_thread(ip, port, verbose):
     global completed_task
     result = scan_port(ip, port)
     if result:
@@ -219,13 +219,16 @@ def start_scan(ip_range, ports, thread_count, verbose=False):
 # Pressing enter displays current progress
 def print_progress_on_enter():
     global total_task, completed_task
-    while completed_task < total_task:
-        input()
-        with threading.Lock():
-            progress = (completed_task / total_task) * 100
-            sys.stdout.write(f"\rProgress: {progress:.2f}% completed")
-            sys.stdout.flush()
-    print()
+    try:
+        while completed_task < total_task:
+            input()
+            with threading.Lock():
+                progress = (completed_task / total_task) * 100
+                sys.stdout.write(f"\rProgress: {progress:.2f}% completed")
+                sys.stdout.flush()
+        print()
+    except KeyboardInterrupt:
+        print("\nProgress monitoring interrupted")
 
 if __name__ == "__main__":
     args = parse_arguments()
