@@ -13,6 +13,9 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 warnings.filterwarnings("ignore", category=CryptographyDeprecationWarning)
 
+# Set Scapy verbosity to 0 (suppress detailed Scapy output)
+conf.verb = 0
+
 logging.basicConfig(
     level=logging.ERROR,  # Default to error level
     format='%(asctime)s - %(levelname)s - %(message)s',
@@ -39,6 +42,7 @@ def parse_arguments():
     parser.add_argument("-p", "--port-range", type=str, default="1-1024", help="Port range to scan")
     parser.add_argument("-t", "--threads", type=int, default=thread_count, help="Number of threads to use for scanning")
     parser.add_argument("-o", "--output", type=str, default=None, help="Output file location (optional)")
+    parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose mode for detailed output")
     return parser.parse_args()
 
 # Service Detection on some known ports
@@ -171,8 +175,10 @@ def worker_thread(ip, port):
     global completed_task
     result = scan_port(ip, port)
     if result:
-        sys.stdout.write(f"\r{result}")
-        sys.stdout.flush()
+        if verbose:
+            logging.info(result)
+        else:
+            print(f"Open {port} on {ip} - Service Detected.")
         #Writes output to a file (appends it)
         if output_file:
             with threading.Lock():
@@ -197,14 +203,14 @@ def prepare_queue(ip_range, ports):
             total_task += 1
 
 # Start the scanning process
-def start_scan(ip_range, ports, thread_count):
+def start_scan(ip_range, ports, thread_count, verbose=False):
     prepare_queue(ip_range, ports)
 
     with ThreadPoolExecutor(max_workers=thread_count) as executor:
         futures = []
         while not q.empty():
             ip, port = q.get()
-            futures.append(executor.submit(worker_thread, ip, port))
+            futures.append(executor.submit(worker_thread, ip, port, verbose))
 
         # Wait for all futures to complete
         for future in as_completed(futures):
@@ -225,6 +231,7 @@ if __name__ == "__main__":
     args = parse_arguments()
     
     output_file = args.output
+    verbose = args.verbose
     
     # Parsing port range
     port_start, port_end = map(int, args.port_range.split('-'))
