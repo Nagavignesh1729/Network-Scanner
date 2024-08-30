@@ -122,11 +122,7 @@ def scan_port(ip, port):
             "response": response if response else "No response"
         }
 
-        with threading.Lock():
-            scan_results.append(result)
-
-        if response:
-            return f"Open {port} on {ip} - Service Response: {response} - OS info: {os_info}"
+        return result
     
     except socket.timeout:
         logging.warning(f"Port {port} on {ip} timed out.")
@@ -183,14 +179,12 @@ def worker_thread(ip, port, verbose):
         #Writes output to a file (appends it)
         if output_file:
             with threading.Lock():
-                with open(output_file, "a") as f:
-                    f.write(result + "\n")
-        scan_results.append({
-            "ip": ip,
-            "port": port,
-            "service": service_banners.get(port, "Unknown"),
-            "response": result
-        })
+                #writing in JSON format if -o is <filename>.json
+                if output_file.endswith('.json'):
+                    scan_results.append(result)
+                else:
+                    with open(output_file, "a") as f:
+                        f.write(f"{result}\n")
     
     with threading.Lock():  # Using lock to safely update progress
         completed_task += 1
@@ -244,15 +238,17 @@ def export_to_json(results, file_path):
     try:
         with open(file_path, 'w') as json_file:
             json.dump(results, json_file, indent=4)
-        logging.info(f"Results successfully exported to {file_path}")
+        print(f"Results successfully exported to {file_path}")
     except Exception as e:
         logging.error(f"Error whileexporting results to JSON file: {e}")
 
 if __name__ == "__main__":
     args = parse_arguments()
     
+    if args.verbose:
+        logging.getLogger().setLevel(logging.INFO)
+        
     output_file = args.output
-    verbose = args.verbose
     
     # Parsing port range
     port_start, port_end = map(int, args.port_range.split('-'))
