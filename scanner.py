@@ -220,6 +220,17 @@ def export_to_json(results, file_path):
         print(f"Results successfully exported to {file_path}")
     except Exception as e:
         logging.error(f"Error whileexporting results to JSON file: {e}")
+    
+# Parse IP range in 'start-end' format and return a list of IP addresses.
+def parse_ip_range(ip_range_str):
+    try:
+        start_ip, end_ip = ip_range_str.split('-')
+        start_ip = ipaddress.IPv4Address(start_ip)
+        end_ip = ipaddress.IPv4Address(end_ip)
+        return [str(ip) for ip in ipaddress.summarize_address_range(start_ip, end_ip)]
+    except ValueError:
+        raise ValueError(f"Invalid IP range format: {ip_range_str}")
+
 
 if __name__ == "__main__":
     args = parse_arguments()
@@ -229,7 +240,11 @@ if __name__ == "__main__":
     output_file = args.output
     verbose = args.verbose
 
-    ip_range = [str(ip) for ip in ipaddress.IPv4Network(target_ip_range)]
+    try:
+        ip_range = parse_ip_range(target_ip_range)
+    except ValueError as e:
+        print(e)
+        sys.exit(1)
 
     total_task = len(ip_range) * len(port_range)
 
