@@ -199,21 +199,6 @@ def writer_thread(output_file):
     if output_file.endswith('.json'):
         export_to_json(scan_results, output_file)
 
-
-# Enqueue IPs and ports to scan
-def prepare_queue(ip_range, ports):
-    global total_task 
-
-    start_ip, end_ip = ip_range.split('-')
-    start_ip = ipaddress.ip_address(start_ip)
-    end_ip = ipaddress.ip_address(end_ip)
-
-    for ip_int in range(int(start_ip), int(end_ip) + 1):
-        ip = str(ipaddress.ip_address(ip_int))
-        for port in ports:
-            q.put((ip, port))
-            total_task += 1
-
 # Start the scanning process
 def start_scan(ip_range, ports, thread_count, verbose=False):
     prepare_queue(ip_range, ports)
@@ -255,7 +240,16 @@ def export_to_json(results, file_path):
 
 if __name__ == "__main__":
     args = parse_arguments()
-    
+    target_ip_range = args.ip_range
+    port_range = range(int(args.port_range.split('-')[0]), int(args.port_range.split('-')[1]) + 1)
+    thread_count = args.threads
+    output_file = args.output
+    verbose = args.verbose
+
+    ip_range = [str(ip) for ip in ipaddress.IPv4Network(target_ip_range)]
+
+    total_task = len(ip_range) * len(port_range)
+
     if args.verbose:
         logging.getLogger().setLevel(logging.INFO)
 
