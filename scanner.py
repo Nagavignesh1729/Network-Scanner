@@ -199,23 +199,6 @@ def writer_thread(output_file):
     if output_file.endswith('.json'):
         export_to_json(scan_results, output_file)
 
-# Start the scanning process
-def start_scan(ip_range, ports, thread_count, verbose=False):
-    prepare_queue(ip_range, ports)
-
-    with ThreadPoolExecutor(max_workers=thread_count) as executor:
-        futures = []
-        while not q.empty():
-            ip, port = q.get()
-            futures.append(executor.submit(worker_thread, ip, port, verbose))
-
-        # Wait for all futures to complete
-        for future in as_completed(futures):
-            future.result()
-    
-    if output_file and output_file.endswith('.json'):
-        export_to_json(scan_results, output_file)
-
 # Pressing enter displays current progress
 def print_progress_on_enter():
     global total_task, completed_task
