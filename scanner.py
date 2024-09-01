@@ -233,22 +233,29 @@ if __name__ == "__main__":
 
     total_task = len(ip_range) * len(port_range)
 
-    if args.verbose:
-        logging.getLogger().setLevel(logging.INFO)
+    print(f"Starting scan on {len(ip_range)} IP addresses over ports {args.port_range} with {thread_count} threads...")
 
-    output_file = args.output
-    
-    # Parsing port range
-    port_start, port_end = map(int, args.port_range.split('-'))
-    port_range = range(port_start, port_end + 1)
+    start_time = time.time()
 
-    # Preparing the thread and starting it
-    scan_thread = threading.Thread(target=start_scan, args=(args.ip_range, port_range, args.threads, args.verbose))
-    scan_thread.start()
-    
-    # A seperate thread to listen for user input to print current progress
+    # Start the progress monitoring thread
     progress_thread = threading.Thread(target=print_progress_on_enter)
     progress_thread.start()
 
-    scan_thread.join()
+    if output_file:
+        writer = threading.Thread(target=writer_thread, args=(output_file,))
+        writer.start()
+
+    with ThreadPoolExecutor(max_workers=thread_count) as executor:
+        for ip in ip_range:
+            for port in port_range:
+                executor.submit(worker_thread, ip, port, verbose)
+
+    if output_file:
+        result_q.put(None)  # Signal the writer thread to stop
+        result_q.join()  # Wait for the writer thread to finish
+
+    # Wait for the progress thread to finish
     progress_thread.join()
+
+    elapsed_time = time.time() - start_time
+    print(f"Scanning completed in {elapsed_time:.2f} seconds.")
