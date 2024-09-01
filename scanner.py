@@ -36,6 +36,8 @@ completed_task = 0
 
 scan_results = []
 
+result_q = Queue()
+
 # Parsing arguments
 def parse_arguments():
     parser = argparse.ArgumentParser(description="Advanced IP and Port Scanner")
@@ -174,18 +176,29 @@ def worker_thread(ip, port, verbose):
             logging.info(f"Scan result: {result}")
         else:
             print(f"Open {port} on {ip} - Service Detected.")
-        #Writes output to a file (appends it)
-        if output_file:
-            with threading.Lock():
-                #writing in JSON format if -o is <filename>.json
-                if output_file.endswith('.json'):
-                    scan_results.append(result)
-                else:
-                    with open(output_file, "a") as f:
-                        f.write(f"{result}\n")
+        # Add to queue
+        result_q.put(result)
     
     with threading.Lock():  # Using lock to safely update progress
         completed_task += 1
+    
+# Seperate thread to write results
+def writer_thread(output_file):
+    while True:
+        result = result_q.get()
+        if result is None:
+            break
+        with threading.Lock():
+            if output_file.endswith('.json'):
+                scan_results.append(result)
+            else:
+                with open(output_file, "a") as fptr:
+                    fptr.write(f"{result}\n")
+        result_q.task_done()
+    
+    if output_file.endswith('.json'):
+        export_to_json(scan_results, output_file)
+
 
 # Enqueue IPs and ports to scan
 def prepare_queue(ip_range, ports):
