@@ -125,10 +125,8 @@ def scan_port(ip, port):
         return result
     
     except socket.timeout:
-        logging.warning(f"Port {port} on {ip} timed out.")
         return None
     except Exception as e:
-        logging.error(f"Error while scanning port {port} on {ip}: {e}")
         return None
     finally:
         sock.close()
@@ -173,7 +171,7 @@ def worker_thread(ip, port, verbose):
     result = scan_port(ip, port)
     if result:
         if verbose:
-            logging.info(result)
+            logging.info(f"Scan result: {result}")
         else:
             print(f"Open {port} on {ip} - Service Detected.")
         #Writes output to a file (appends it)
