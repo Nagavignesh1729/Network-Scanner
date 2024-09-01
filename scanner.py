@@ -1,8 +1,6 @@
 import socket
 import logging
 import warnings
-import threading
-from queue import Queue
 import ipaddress
 import argparse
 from scapy.all import IP, TCP, sr1, conf
