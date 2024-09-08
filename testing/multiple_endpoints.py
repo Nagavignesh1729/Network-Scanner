@@ -2,24 +2,23 @@ import aiohttp
 import asyncio
 
 async def fetch(session, url):
-    async with session.get(url) as response:
-        return await response.text()
-
-async def fetch_all(urls):
-    async with aiohttp.ClientSession() as session:
-        tasks = [fetch(session, url) for url in urls]
-        results = await asyncio.gather(*tasks)
-        return results
+    try:
+        async with session.get(url, timeout=2) as response:
+            return await response.text()
+    except asyncio.TimeoutError:
+        return f'Timeout for URL: {url}'
+    except Exception as e:
+        return f'Error for URL: {url} - {str(e)}'
 
 async def main():
     urls = [
         'http://python.org',
         'http://example.com',
-        'http://github.com',
-        'http://chane.com'
+        'http://invalid-url'
     ]
-    results = await fetch_all(urls)
-    for url, content in zip(urls, results):
-        print(f'URL: {url}, Length of content: {len(content)}')
+    async with aiohttp.ClientSession() as session:
+        results = await asyncio.gather(*(fetch(session, url) for url in urls))
+        for url, result in zip(urls, results):
+            print(f'URL: {url}, Result: {result}')
 
-asyncio.run(main()) 
+asyncio.run(main())
