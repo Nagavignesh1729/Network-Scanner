@@ -15,10 +15,11 @@ async def main():
     urls = [
         'http://python.org',
         'http://example.com',
-        'http://github.com'
+        'http://github.com',
+        'http://chane.com'
     ]
     results = await fetch_all(urls)
     for url, content in zip(urls, results):
         print(f'URL: {url}, Length of content: {len(content)}')
 
-asyncio.run(main())
+asyncio.run(main()) 
