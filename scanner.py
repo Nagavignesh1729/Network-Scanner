@@ -167,6 +167,9 @@ def os_fingerprint(ip):
             logging.error(f"Error during OS fingerprinting for {ip}: {e}")
             return "Unknown OS"
 
+
+progress_bar = tqdm(total=total_task, desc="Scanning Progress")
+
 # Thread to handle scanning tasks
 def worker_thread(ip, port, verbose):
     global completed_task
@@ -181,6 +184,7 @@ def worker_thread(ip, port, verbose):
     
     with threading.Lock():  # Using lock to safely update progress
         completed_task += 1
+        progress_bar.update(1);
     
 # Separate thread to write results
 def writer_thread(output_file):
